@@ -17,14 +17,14 @@ const registerUser = asyncHandler(async (req, res) => {
         throw new ApiError(400, "All fields are required.")
     }
 
-    // Checks if email is valid or not
-    if (email.indexOf('@') <= -1) {
-        throw new ApiError(400, "Email is not a valid.")
-    }
+    // // Checks if email is valid or not
+    // if (email.indexOf('@') <= -1) {
+    //     throw new ApiError(400, "Email is not a valid.")
+    // }
 
     // Checks if User is already registered or not
-    const isUserExist = User.findOne({
-        $or: [email, username]
+    const isUserExist = await User.findOne({
+        $or: [{ email }, { username }]
     })
 
     if (isUserExist) {
@@ -32,17 +32,22 @@ const registerUser = asyncHandler(async (req, res) => {
     }
 
     // Storing images in server temperory
-    const avatarLocalPath = req.files?.avatar[0]?.path
-    const coverImageLocalPath = req.files?.coverImage[0]?.path
+    let avatarLocalPath = req.files?.avatar[0]?.path
 
-    // Checks if avatarLocalPath valid or not
+    let coverImageLocalPath;
+    if(req.files && Array.isArray(req.files.coverImage) && req.files.coverImage.length > 0){
+        coverImage = req.files.coverImage[0].path
+    }
+
     if (!avatarLocalPath) {
         throw new ApiError(400, "Avatar is required.")
     }
 
-    const avatar = uploadOnCloudinary(avatarLocalPath)
-    const coverImage = uploadOnCloudinary(coverImageLocalPath)
+    const avatar = await uploadOnCloudinary(avatarLocalPath)
+    const coverImage = await uploadOnCloudinary(coverImageLocalPath)
 
+    // console.log(avatar)
+    
     // Checks again for avatar because it is important
     if (!avatar) {
         throw new ApiError(400, "Avatar is required.")
@@ -63,7 +68,7 @@ const registerUser = asyncHandler(async (req, res) => {
         "-password -refreshToken"
     )
 
-    if(!createdUser){
+    if (!createdUser) {
         throw new ApiError(500, "Server error while registering User.")
     }
 
@@ -72,4 +77,4 @@ const registerUser = asyncHandler(async (req, res) => {
     )
 })
 
-export default registerUser
+export default registerUser;
