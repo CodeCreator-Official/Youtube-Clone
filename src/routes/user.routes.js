@@ -1,4 +1,4 @@
-import { LoginUser, LogoutUser, refreshAccessToken, registerUser } from "../controllers/user.controller.js";
+import { LoginUser, LogoutUser, refreshAccessToken, registerUser,updateAvatar } from "../controllers/user.controller.js";
 import { Router } from "express";
 import upload from "../middlewares/multer.middleware.js"
 import verifyJWT from "../middlewares/auth.middleware.js";
@@ -30,7 +30,20 @@ userRouter
     .post(verifyJWT, LogoutUser)
 
 userRouter
-    .route("refresh-token")
+    .route("/refresh-token")
     .post(refreshAccessToken)
+
+userRouter
+.route("/updateAvtar")
+.post(
+    upload.fields(
+        [
+            {
+                name: "avatar",
+                maxCount: 1,
+            }
+        ]
+    ),
+    updateAvatar)
 
 export default userRouter

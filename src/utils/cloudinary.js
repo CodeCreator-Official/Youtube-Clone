@@ -1,4 +1,5 @@
 import { v2 as cloudinary } from 'cloudinary';
+import ApiError from './ApiError.js'
 import fs from 'fs';
 
 cloudinary.config({
@@ -10,22 +11,37 @@ cloudinary.config({
 const uploadOnCloudinary = async (localFilePath) => {
     try {
 
-        if (!localFilePath)  return null 
+        if (!localFilePath) return null
 
-        console.log('Starts uploading')
         const response = await cloudinary.uploader.upload(localFilePath, {
             resource_type: "auto"
         })
-        // console.log('Success :: cloudinary.js :: uploadOnCloudinary', response.url)
         fs.unlinkSync(localFilePath)
         return response
     } catch (error) {
-        if(localFilePath){
-            fs.unlinkSync(localFilePath) 
+        if (localFilePath) {
+            fs.unlinkSync(localFilePath)
         }
         // removes temp file on local
         return null
     }
 }
 
+const deleteFromCloudinary = async (publicId) => {
+    try {
+
+        if (!publicId) throw new ApiError(500, "Image not found")
+
+        const response = await cloudinary.uploader.destroy(publicId)
+        console.log(response)
+
+    } catch (error) {
+        throw new ApiError(500, "Process of Deleting image Failed")
+    }
+}
+
 export default uploadOnCloudinary
+
+export {
+    deleteFromCloudinary
+}

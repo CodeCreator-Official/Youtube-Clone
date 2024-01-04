@@ -1,7 +1,7 @@
 import asyncHandler from '../utils/asyncHandler.js'
 import ApiError from '../utils/ApiError.js'
 import { User } from '../models/user.models.js'
-import uploadOnCloudinary from '../utils/cloudinary.js'
+import uploadOnCloudinary, { deleteFromCloudinary } from '../utils/cloudinary.js'
 import ApiResponse from '../utils/ApiResponse.js'
 import jwt from 'jsonwebtoken'
 
@@ -293,7 +293,7 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
 
 const updateAvatar = asyncHandler(async (req, res) => {
 
-    const avatarLocalPath = req.file?.path
+    const avatarLocalPath = req.files?.avatar[0]?.path
 
     if (!avatarLocalPath) {
         throw new ApiError(200, "Avatar file is missing")
@@ -304,9 +304,23 @@ const updateAvatar = asyncHandler(async (req, res) => {
     if (!avatar.url) {
         throw new ApiError(500, "Somthing went wrong while uploading avatar")
     }
+    const user = await jwt.verify(req.cookies.accessToken, process.env.ACCESS_TOKEN_SECRET)
 
-    const user = await User.findByIdAndUpdate(
-        req.user._id,
+    if (!user) {
+        throw new ApiError(401, "Unauthenticated request")
+    }
+
+    const oldUser = await User.findById(user._id)
+
+    if (!oldUser) {
+        throw new ApiError(400, "User not found")
+    }
+    const oldImageUrl = oldUser.avatar
+
+    await deleteFromCloudinary(oldImageUrl)
+
+    const newUser = await User.findByIdAndUpdate(
+        user._id,
         {
             $set: {
                 avatar: avatar.url
@@ -320,7 +334,7 @@ const updateAvatar = asyncHandler(async (req, res) => {
         .json(
             new ApiResponse(
                 200,
-                user,
+                newUser,
                 "Avatar updated successfully"
             )
         )
@@ -328,7 +342,7 @@ const updateAvatar = asyncHandler(async (req, res) => {
 
 const updateCoverImage = asyncHandler(async (req, res) => {
 
-    const coverImageLocalPath = req.file?.path
+    const coverImageLocalPath = req.files?.coverImage[0]?.path
 
     if (!coverImageLocalPath) {
         throw new ApiError(200, "Cover Image file is missing")
@@ -339,9 +353,16 @@ const updateCoverImage = asyncHandler(async (req, res) => {
     if (!coverImage.url) {
         throw new ApiError(500, "Somthing went wrong while uploading coverImage")
     }
+    const user = await jwt.verify(req.cookies.accessToken, process.env.ACCESS_TOKEN_SECRET)
 
-    const user = await User.findByIdAndUpdate(
-        req.user._id,
+    if (!user) {
+        throw new ApiError(401, "Unauthenticated request")
+    }
+
+    const oldUser = await User.findById(user._id)
+
+    const newuser = await User.findByIdAndUpdate(
+        user._id,
         {
             $set: {
                 coverImage: coverImage.url
@@ -359,6 +380,91 @@ const updateCoverImage = asyncHandler(async (req, res) => {
                 "Cover Image updated successfully"
             )
         )
+})
+
+const getUserChannelProfile = asyncHandler(async (req, res) => {
+
+    const { username } = req.params
+
+    if(!username?.trim()){
+        throw new ApiError(400, "Username is a required field.")
+    }
+
+    const channel = await User.aggregate([
+
+        // 1st stage - Finding user from database
+        {
+            $match: {
+                username: username?.toLowerCase()
+            }
+        },
+        // 2nd stage - Adding subscribers field to user data model
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "channel",
+                as: "subscribers"
+            }
+        },
+        // 3rd stage - Adding subscribedTo field to user data model
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "subscriber",
+                as: "subscribedTo"
+            }
+        },
+        // 4th stage - Adding subscribersCount and channelsSubscribedToCount to user data model
+        {
+            $addFields: {
+                subscribersCount: {
+                    $size: "$subscribers"
+                },
+                channelsSubscribedToCount: {
+                    $size: "$subscribedTo"
+                },
+                // Adding a feature of toggle of Subscribe and Unsubscribe
+                isSubscribed: {
+                    $cond: {
+                        if: {$in: [req.user?._id, "$subscribers.subscriber"]},
+                        then: true,
+                        else: false
+                    }
+                }
+            }
+        },
+        // 5th stage - Sending selected fields
+        {
+            $project: {
+                fullname: 1,
+                username: 1,
+                email: 1,
+                subscribersCount: 1,
+                channelsSubscribedToCount: 1,
+                isSubscribed: 1,
+                avatar: 1,
+                coverImage: 1,
+            }
+        }
+    ])
+    
+    if(!channel?.length){
+        throw new ApiError(404, "Channel does not exists")
+    }
+
+    console.log(channel)
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(
+            200,
+            channel[0],
+            "Channel fetched Successfully"
+        )
+    )
 })
 
 export {
