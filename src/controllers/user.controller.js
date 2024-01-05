@@ -294,7 +294,7 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
 
 const updateAvatar = asyncHandler(async (req, res) => {
 
-    const avatarLocalPath = req.files?.avatar[0]?.path
+    const avatarLocalPath = req.file?.path
 
     if (!avatarLocalPath) {
         throw new ApiError(200, "Avatar file is missing")
@@ -305,7 +305,7 @@ const updateAvatar = asyncHandler(async (req, res) => {
     if (!avatar.url) {
         throw new ApiError(500, "Somthing went wrong while uploading avatar")
     }
-    const user = await jwt.verify(req.cookies.accessToken, process.env.ACCESS_TOKEN_SECRET)
+    const user = req.user
 
     if (!user) {
         throw new ApiError(401, "Unauthenticated request")
@@ -343,7 +343,7 @@ const updateAvatar = asyncHandler(async (req, res) => {
 
 const updateCoverImage = asyncHandler(async (req, res) => {
 
-    const coverImageLocalPath = req.files?.coverImage[0]?.path
+    const coverImageLocalPath = req.file?.path
 
     if (!coverImageLocalPath) {
         throw new ApiError(200, "Cover Image file is missing")
@@ -354,13 +354,16 @@ const updateCoverImage = asyncHandler(async (req, res) => {
     if (!coverImage.url) {
         throw new ApiError(500, "Somthing went wrong while uploading coverImage")
     }
-    const user = await jwt.verify(req.cookies.accessToken, process.env.ACCESS_TOKEN_SECRET)
+    const user = req.user
 
     if (!user) {
         throw new ApiError(401, "Unauthenticated request")
     }
 
     const oldUser = await User.findById(user._id)
+    const oldImageUrl = oldUser.coverImage
+
+    await deleteFromCloudinary(oldImageUrl)
 
     const newuser = await User.findByIdAndUpdate(
         user._id,
@@ -377,7 +380,7 @@ const updateCoverImage = asyncHandler(async (req, res) => {
         .json(
             new ApiResponse(
                 200,
-                user,
+                newuser,
                 "Cover Image updated successfully"
             )
         )
