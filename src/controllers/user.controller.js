@@ -151,7 +151,8 @@ const LogoutUser = asyncHandler(async (req, res) => {
     await User.findByIdAndUpdate(
         req.user._id,
         {
-            $set: { refreshToken: undefined }
+            $unset: { refreshToken: 1 }
+            // $set: { refreshToken: undefined }
         },
         {
             new: true
@@ -305,23 +306,23 @@ const updateAvatar = asyncHandler(async (req, res) => {
     if (!avatar.url) {
         throw new ApiError(500, "Somthing went wrong while uploading avatar")
     }
-    const user = req.user
+    const user = req?.user
 
     if (!user) {
         throw new ApiError(401, "Unauthenticated request")
     }
 
-    const oldUser = await User.findById(user._id)
+    const oldUser = await User.findById(user?._id)
 
     if (!oldUser) {
-        throw new ApiError(400, "User not found")
+        throw new ApiError(404, "User not found")
     }
     const oldImageUrl = oldUser.avatar
 
     await deleteFromCloudinary(oldImageUrl)
 
     const newUser = await User.findByIdAndUpdate(
-        user._id,
+        user?._id,
         {
             $set: {
                 avatar: avatar.url
@@ -354,19 +355,25 @@ const updateCoverImage = asyncHandler(async (req, res) => {
     if (!coverImage.url) {
         throw new ApiError(500, "Somthing went wrong while uploading coverImage")
     }
-    const user = req.user
+    const user = req?.user
 
     if (!user) {
         throw new ApiError(401, "Unauthenticated request")
     }
 
-    const oldUser = await User.findById(user._id)
+    const oldUser = await User.findById(user?._id)
+
+    if (!oldUser) {
+        throw new ApiError(404, "User not found")
+    }
     const oldImageUrl = oldUser.coverImage
 
-    await deleteFromCloudinary(oldImageUrl)
+    if(oldImageUrl != ''){
+        await deleteFromCloudinary(oldImageUrl)
+    }
 
     const newuser = await User.findByIdAndUpdate(
-        user._id,
+        user?._id,
         {
             $set: {
                 coverImage: coverImage.url
@@ -523,14 +530,14 @@ const getWatchHistory = asyncHandler(async (req, res) => {
     ])
 
     return res
-    .status(200)
-    .json(
-        new ApiResponse(
-            200,
-            user[0].watchHistory,
-            "WatchHistory fetched Successfully."
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                user[0].watchHistory,
+                "WatchHistory fetched Successfully."
+            )
         )
-    )
 })
 
 export {

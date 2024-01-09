@@ -32,8 +32,8 @@ const deleteFromCloudinary = async (publicId) => {
 
         if (!publicId) throw new ApiError(500, "Image not found")
 
+        console.log(publicId)
         const response = await cloudinary.uploader.destroy(publicId)
-        console.log(response)
 
     } catch (error) {
         throw new ApiError(500, "Process of Deleting image Failed")
